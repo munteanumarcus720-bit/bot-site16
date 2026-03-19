@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght=600;800&display=swap" rel="stylesheet">
+
+<style>
+html,body{
+    margin:0;
+    padding:0;
+    height:100%;
+    font-family:'Inter',Arial;
+    color:white;
+    overflow:hidden;
+    background:#0b0b0c;
+}
+
+/* ⭐ STELE TWINKLE */
+body::before{
+    content:"";
+    position:fixed;
+    inset:0;
+
+    background:
+        radial-gradient(circle, rgba(0,255,150,1) 1.8px, transparent 1.8px),
+        radial-gradient(circle, rgba(255,215,0,1) 1.8px, transparent 1.8px),
+        radial-gradient(circle, rgba(0,200,255,1) 1.8px, transparent 1.8px),
+        radial-gradient(circle, rgba(255,255,255,0.8) 1px, transparent 1px);
+
+    background-size: 80px 80px, 110px 110px, 140px 140px, 60px 60px;
+    background-position: 0 0, 40px 60px, 80px 20px, 20px 30px;
+
+    opacity:0.6;
+    animation: twinkle 4s ease-in-out infinite alternate;
+}
+
+@keyframes twinkle{
+    0%{opacity:0.3;}
+    50%{opacity:0.7;}
+    100%{opacity:0.4;}
+}
+
+/* LAYOUT */
+.container{
+    position: relative;
+    z-index: 2;
+    height:100%;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:flex-start;
+    padding-top:80px;
+}
+
+.title{font-size:26px;font-weight:800;}
+.subtitle{font-size:14px;opacity:.6;margin-bottom:30px;}
+
+.chicken{
+    width:110px;
+    margin:10px 0;
+    transform: rotate(-8deg);
+    animation: float 2s ease-in-out infinite;
+}
+
+@keyframes float{
+    0%,100%{transform:translateY(0) rotate(-8deg);}
+    50%{transform:translateY(-8px) rotate(-8deg);}
+}
+
+.state{
+    font-size:18px;
+    opacity:.7;
+    margin-bottom:10px;
+}
+
+/* LOADER */
+.loaderWrap{
+    display:none;
+    flex-direction:column;
+    align-items:center;
+    margin:30px 0;
+}
+
+.loader{
+    width:80px;
+    height:80px;
+    border-radius:50%;
+    border:6px solid rgba(255,255,255,0.15);
+    border-top:6px solid #fff;
+    animation:spin 1s linear infinite;
+}
+
+.loadingText{
+    margin-top:14px;
+    font-size:20px;
+}
+
+/* CIRCLE */
+.circle{
+    width:170px;
+    aspect-ratio:1/1;
+    display:none;
+    align-items:center;
+    justify-content:center;
+    position:relative;
+    margin-bottom:25px;
+}
+
+.circle img{width:100%;}
+
+.circle span{
+    position:absolute;
+    top:47%;
+    left:50%;
+    transform:translate(-50%,-50%);
+    font-size:34px;
+    font-weight:800;
+}
+
+/* BUTTON */
+.button{
+    width:260px;
+    padding:15px;
+    border-radius:14px;
+    background:#34c759;
+    text-align:center;
+    font-weight:800;
+}
+
+/* LEVEL */
+.levels{
+    margin-top:10px;
+    display:grid;
+    grid-template-columns:repeat(2,120px);
+    gap:10px;
+}
+
+.levels button{
+    padding:12px;
+    border-radius:12px;
+    border:none;
+    background:#3a3a3c;
+    color:white;
+}
+
+.active{
+    background:#ffd60a !important;
+    color:black;
+}
+
+@keyframes spin{to{transform:rotate(360deg);}}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+<div class="title">CHICKEN BOT</div>
+<div class="subtitle">AI Chicken v3.0</div>
+
+<img id="chicken" class="chicken" src="chicken.PNG">
+
+<div id="state" class="state">Ready...</div>
+
+<div id="loaderWrap" class="loaderWrap">
+    <div class="loader"></div>
+    <div class="loadingText">Loading...</div>
+</div>
+
+<div id="circle" class="circle">
+    <img src="circle.PNG">
+    <span id="result">2.00x</span>
+</div>
+
+<div class="button" onclick="predict()">PREDICT</div>
+
+<div class="levels">
+<button onclick="setLevel('easy')">Easy</button>
+<button onclick="setLevel('medium')" class="active">Medium</button>
+<button onclick="setLevel('hard')">Hard</button>
+<button onclick="setLevel('hardcore')">Hardcore</button>
+</div>
+
+</div>
+
+<script>
+const tg = window.Telegram.WebApp;
+tg.expand();
+
+let level="medium";
+
+/* 🔥 GENERARE + SHUFFLE */
+function generatePool(size,min,max){
+    let arr=[];
+    for(let i=0;i<size;i++){
+        let num=(Math.random()*(max-min)+min).toFixed(2);
+        arr.push(num+"x");
+    }
+    return shuffle(arr);
+}
+
+function shuffle(a){
+    for(let i=a.length-1;i>0;i--){
+        let j=Math.floor(Math.random()*(i+1));
+        [a[i],a[j]]=[a[j],a[i]];
+    }
+    return a;
+}
+
+/* 🔥 POOLURI MARI (1000+) */
+const data={
+    easy: generatePool(1200,3,6),
+    medium: generatePool(1200,4,8),
+    hard: generatePool(1200,5,9),
+    hardcore: generatePool(1200,6,10)
+};
+
+/* 🔥 INDEX PER MOD (NO REPEAT) */
+let index={
+    easy:0,
+    medium:0,
+    hard:0,
+    hardcore:0
+};
+
+function setLevel(l){
+    level=l;
+    document.querySelectorAll(".levels button").forEach(b=>b.classList.remove("active"));
+    event.target.classList.add("active");
+}
+
+function predict(){
+    let loader=document.getElementById("loaderWrap");
+    let circle=document.getElementById("circle");
+    let result=document.getElementById("result");
+
+    circle.style.display="none";
+    loader.style.display="flex";
+
+    setTimeout(()=>{
+        loader.style.display="none";
+        circle.style.display="flex";
+
+        let arr=data[level];
+        let i=index[level];
+
+        result.innerText=arr[i];
+
+        index[level]++;
+
+        if(index[level]>=arr.length){
+            data[level]=shuffle(arr);
+            index[level]=0;
+        }
+
+    },1200);
+}
+</script>
+
+</body>
+</html>
